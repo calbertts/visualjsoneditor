@@ -229,6 +229,35 @@ var TreeContainer = React.createClass(
               }
               domNode = this;
               if (selectedNode) {
+                  // From property to item in an array
+                  if(draggingNode.type === 'property' && (selectedNode.type === 'array' || selectedNode.subtype === 'array'))
+                  {
+                    var index = draggingNode.parent.children.indexOf(draggingNode);
+
+                    var item = {
+                      name: '['+(selectedNode.children.length+1)+']',
+                      type: 'item',
+                      parent: selectedNode,
+                      children: []
+                    }
+
+                    // Remove from the previous parent
+                    var index = draggingNode.parent.children.indexOf(draggingNode);
+                    if (index > -1) {
+                        draggingNode.parent.children.splice(index, 1);
+                    }
+
+                    item.children.push(draggingNode);
+
+                    selectedNode.children.push(item);
+
+                    sortTree();
+                    expand(selectedNode);
+                    endDrag();
+
+                    return;
+                  }
+
                   /*if(selectedNode.type && selectedNode.type === 'array')
                   {
                     if(draggingNode.type && draggingNode.type === 'item')
@@ -282,8 +311,8 @@ var TreeContainer = React.createClass(
                   // self.onDropNode(selectedNode, draggingNode);
 
                   // Make sure that the node being added to is expanded so user can see added node is correctly moved
-                  expand(selectedNode);
                   sortTree();
+                  expand(selectedNode);
                   endDrag();
               } else {
                   endDrag();
@@ -588,7 +617,6 @@ var TreeContainer = React.createClass(
                     }
                   }
 
-                  sortTree();
                   return (d.value) ? "<title>"+d.value+"</title>" + label : label;
               });
 
@@ -748,7 +776,6 @@ var TreeContainer = React.createClass(
 
               if(obj[i] && obj[i].constructor === Array)
               {
-                //item.type = 'array';
                 item.subtype = 'array';
               }
 
@@ -776,6 +803,7 @@ var TreeContainer = React.createClass(
                 {
                   property = {
                     name: prop + '',
+                    type: 'object',
                     children: []
                   }
                 }
@@ -787,6 +815,7 @@ var TreeContainer = React.createClass(
               {
                 var property = {
                   name: prop + '',
+                  type: 'property',
                   value: obj[prop]
                 };
 
@@ -797,7 +826,8 @@ var TreeContainer = React.createClass(
           else
           {
             property = {
-              name: obj + ''
+              name: obj + '',
+              type: 'property'
             }
 
             list.push(property);
@@ -806,7 +836,8 @@ var TreeContainer = React.createClass(
         else
         {
           property = {
-            name: obj + ''
+            name: obj + '',
+            type: 'property'
           }
 
           list.push(property);
