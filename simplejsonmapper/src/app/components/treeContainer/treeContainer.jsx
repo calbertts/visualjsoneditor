@@ -1,4 +1,5 @@
 var React = require('react');
+//var Dialog = require('../dialog/dialog.jsx');
 
 var TreeContainer = React.createClass(
 {
@@ -126,6 +127,12 @@ var TreeContainer = React.createClass(
       var zoomListener = d3.behavior.zoom().scaleExtent([0.1, 3]).on("zoom", zoom);
 
       function initiateDrag(d, domNode) {
+          d3.selectAll(".ghostCircle")
+              .data(nodes, function(circle) {
+                  //console.log(1);
+                  console.log(circle)
+              })
+
           draggingNode = d;
           d3.select(domNode).select('.ghostCircle').attr('pointer-events', 'none');
           d3.selectAll('.ghostCircle').attr('class', 'ghostCircle show');
@@ -178,7 +185,7 @@ var TreeContainer = React.createClass(
       // Define the drag listeners for drag/drop behaviour of nodes.
       dragListener = d3.behavior.drag()
           .on("dragstart", function(d) {
-              if (d == root) {
+              if (d == root || (d.type === 'property' && d.parent.type === 'item' && !('value' in d))) {
                   return;
               }
               dragStarted = true;
@@ -224,11 +231,14 @@ var TreeContainer = React.createClass(
               node.attr("transform", "translate(" + d.y0 + "," + d.x0 + ")");
               updateTempConnector();
           }).on("dragend", function(d) {
-              if (d == root) {
+              if (d == root || (selectedNode !== null && selectedNode.type === 'property' && selectedNode.parent.type === 'item' && !('value' in selectedNode))) {
                   return;
               }
               domNode = this;
               if (selectedNode) {
+                  /*console.log("draggingNode: ", draggingNode.type);
+                  console.log("selectedNode: ", selectedNode.type);*/
+
                   // From property to item in an array
                   if(draggingNode.type === 'property' && (selectedNode.type === 'array' || selectedNode.subtype === 'array'))
                   {
@@ -258,7 +268,52 @@ var TreeContainer = React.createClass(
                     return;
                   }
 
-                  /*if(selectedNode.type && selectedNode.type === 'array')
+                  else if(draggingNode.type === 'item' && (selectedNode.type === 'property' || selectedNode.type === 'object'))
+                  {
+                      var resp = prompt("What do you want to do?\n" +
+                          "1. Replace the value for: " + selectedNode.name + "\n" +
+                          "2. Create a new property");
+
+                      if(resp === '1')
+                      {
+                          selectedNode.value = undefined;
+                          selectedNode._children = null;
+                          selectedNode.children = [];
+                          selectedNode.type = 'object'
+
+                          selectedNode.children = draggingNode.children;
+
+                          // Remove from the previous parent
+                          var index = draggingNode.parent.children.indexOf(draggingNode);
+                          if (index > -1) {
+                              draggingNode.parent.children.splice(index, 1);
+                          }
+
+                          console.log("FINAL -> selectedNode", selectedNode);
+                      }
+
+                      else if(resp === '2')
+                      {
+                          var newPropertyName = prompt("Enter the property's name");
+                          draggingNode.name = newPropertyName;
+
+                          console.log("FINAL -> selectedNode", selectedNode);
+                      }
+
+                      else
+                      {
+                          alert("Not an option");
+                          return;
+                      }
+
+                      sortTree();
+                      expand(selectedNode);
+                      endDrag();
+
+                      return;
+                  }
+
+                  if(selectedNode.type && selectedNode.type === 'array')
                   {
                     if(draggingNode.type && draggingNode.type === 'item')
                     {
@@ -287,7 +342,7 @@ var TreeContainer = React.createClass(
                     }
 
                     console.log(draggingNode, selectedNode);
-                  }*/
+                  }
 
                   // now remove the element from the parent, and insert it into the new elements children
                   var index = draggingNode.parent.children.indexOf(draggingNode);
@@ -507,11 +562,27 @@ var TreeContainer = React.createClass(
               .on('click', click)
               .on('contextmenu', rightClick);
 
+          //console.log("creating circle", source);
           nodeEnter.append("circle")
               .attr('class', 'nodeCircle')
               .attr("r", 0)
+              .style("stroke", function(d) {
+                  if(d.type === 'property' && d.parent.type === 'item' && !('value' in d)) {
+                      return "rgb(238, 238, 238)";
+                  }
+              })
               .style("fill", function(d) {
-                  return d._children ? "lightsteelblue" : "#fff";
+                  if(d.type === 'property' && d.parent.type === 'item' && !('value' in d))
+                      return "rgb(238, 238, 238)";
+                  else
+                      return d._children ? "lightsteelblue" : "#fff";
+              })
+              .style("stroke-width", function(d) {
+                  if(d.type === 'property' && d.parent.type === 'item' && !('value' in d))
+                    return '0';
+              })
+              .style("display", function(d) {
+                  return (d.type === 'property' && d.parent.type === 'item' && !('value' in d)) ? 'none' : 'block'
               });
 
           nodeEnter.append("text")
@@ -531,7 +602,7 @@ var TreeContainer = React.createClass(
           // phantom node to give us mouseover in a radius around it
           nodeEnter.append("circle")
               .attr('class', 'ghostCircle')
-              .attr("r", 30)
+              .attr("r", 20)
               .attr("opacity", 0.2) // change this to zero to hide the target area
           .style("fill", "red")
               .attr('pointer-events', 'mouseover')
@@ -624,7 +695,10 @@ var TreeContainer = React.createClass(
           node.select("circle.nodeCircle")
               .attr("r", 4.5)
               .style("fill", function(d) {
-                  return d._children ? "lightsteelblue" : "#fff";
+                  if(d.type === 'property' && d.parent.type === 'item' && !('value' in d))
+                      return "rgb(238, 238, 238)";
+                  else
+                      return d._children ? "lightsteelblue" : "#fff";
               });
 
           // Transition nodes to their new position.
@@ -736,7 +810,9 @@ var TreeContainer = React.createClass(
   render()
   {
     return (
-      <div id="tree-container"></div>
+      <div id="tree-container">
+          {/*<Dialog ref="dialog" options={["Option 1", "Option 2", "Option 3"]} />*/}
+      </div>
     );
   },
 
